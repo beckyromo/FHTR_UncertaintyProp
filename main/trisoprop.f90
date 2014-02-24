@@ -6,7 +6,7 @@
     !           particles and fuel pebbles
     !
     !  FUNCTIONS:
-    !  k_graphite
+    !  k_graphite-----------------what kind, what about ig110u?
     !  k_SiC
     !  k_densePyC
     !  k_PyC

@@ -2,17 +2,18 @@ module io
     use flibeprop, only:flibe_rho
     implicit none
     private
-    public :: read_limits, read_inputs, outputs_init, LSSS_init, print_LSSS
+    public :: read_limits, inputoutput_init_Tin, inputoutput_init_Tout, LSSS_init, print_LSSS
   
     ! declare variables
-    type,public :: input_type
+    type,public :: inputoutput_type
         real(8)             :: POWER                ! Reactor power [W]
-        !real(8)             :: DECAY_HEAT           ! Decay heat of reactor [W]
-        !real(8)             :: POWER_NORM           ! Norminal Fisison Power [W]
         real(8)             :: W_core               ! Mass flow rate in the core [kg/s]
         real(8)             :: Q_core               ! Volumetric flow rate in the core [m^3/s]
-        real(8)             :: T_in                 ! Inlet temperature of the core [Celcius] 
-    end type input_type
+        real(8)             :: T_in                 ! Inlet temperature of the core [Celcius]
+        real(8)             :: T_out                ! Maximum coolant temperature [Celcius]
+        real(8)             :: T_coolant_max        ! Maximum core temperature  [Celcius]
+        real(8)             :: T_core_max           ! Outlet temperature of the core [Celcius]
+    end type inputoutput_type
   
     type,public :: limits_type
         real(8)             :: T_in_limit           ! LSSS temperature limit for T_in (min T_in temp)
@@ -20,12 +21,6 @@ module io
         real(8)             :: T_coolant_limit      ! LSSS temperature limit for coolant (max coolant temp in hot channel)
         real(8)             :: T_out_limit          ! LSSS temperature limit for T_out (max T_out temp in average channel)
     end type limits_type
-    
-    type,public :: output_type
-        real(8)             :: T_out                ! Maximum coolant temperature [Celcius]
-        real(8)             :: T_coolant_max        ! Maximum core temperature  [Celcius]
-        real(8)             :: T_core_max           ! Outlet temperature of the core [Celcius] 
-    end type output_type  
     
     type,public :: LSSS_type
         real(8)             :: INmaxcoolPOWER
@@ -63,41 +58,75 @@ contains
         ! declare arguments
         type(limits_type)   :: this
     
-        this%T_fuel_limit=1300.0_8               ! [Celcius]
-        this%T_coolant_limit=1200.0_8            ! [Celcius]
-        this%T_in_limit=470.0_8                  ! [Celcius]
-        this%T_out_limit=720.0_8                 ! [Celcius]
+        this%T_fuel_limit=1300.0_8                  ! [Celcius]
+        this%T_coolant_limit=1200.0_8               ! [Celcius]
+        this%T_in_limit=470.0_8                     ! [Celcius]
+        this%T_out_limit=720.0_8                    ! [Celcius]
         
     end subroutine read_limits
   
     
 !==============================================================================
-! read_inputs
+! inputoutput_init_T_in
 !==============================================================================
-    subroutine read_inputs(this)
+    subroutine inputoutput_init_Tin(this)
         ! declare arguments
-        type(input_type)    :: this
+        type(inputoutput_type)      :: this
+        type(limits_type)           :: limits
         
-        this%POWER=20.0E6_8                      ! [W]
-        this%W_core=83.82_8                      ! [kg/s]
-        this%Q_core=this%W_core/flibe_rho(600.0_8)    ! [m^3/s]
-        this%T_in=470.0_8                        ! [Celcius]
+        call read_limits(limits)
+        
+        this%POWER=20.0E6_8                         ! [W]
+        this%W_core=83.82_8                         ! [kg/s]
+        this%Q_core=this%W_core/flibe_rho(600.0_8)  ! [m^3/s]
+        this%T_in=limits%T_in_limit                 ! [Celcius]
+        this%T_out=0.0_8                            ! [Celcius]
+        this%T_coolant_max=0.0_8                    ! [Celcius]
+        this%T_core_max=0.0_8                       ! [Celcius]
     
-    end subroutine read_inputs
+    end subroutine inputoutput_init_Tin
     
     
 !==============================================================================
-! outputs_init
+! inputoutput_init_Tout
 !==============================================================================    
-    subroutine outputs_init(this)
-        !declare arguemtns
-        type(output_type)   :: this
+    subroutine inputoutput_init_Tout(this)
+        ! declare arguments
+        type(inputoutput_type)      :: this
+        type(limits_type)           :: limits
         
-        this%T_out=0.0_8
-        this%T_coolant_max=0.0_8
-        this%T_core_max=0.0_8
+        call read_limits(limits)
         
-    end subroutine outputs_init
+        this%POWER=20.0E6_8                         ! [W]
+        this%W_core=83.82_8                         ! [kg/s]
+        this%Q_core=this%W_core/flibe_rho(600.0_8)  ! [m^3/s]
+        this%T_in=limits%T_in_limit                 ! [Celcius] ! NEED TO GUESS AND ITERATE BC of mass flow rate
+        this%T_out=limits%T_out_limit               ! [Celcius]
+        this%T_coolant_max=0.0_8                    ! [Celcius]
+        this%T_core_max=0.0_8                       ! [Celcius]
+        
+    end subroutine inputoutput_init_Tout
+    
+    
+!==============================================================================
+! inputoutput_init_LSSS
+!==============================================================================    
+    subroutine inputoutput_init_LSSS(this)
+        ! declare arguments
+        type(inputoutput_type)      :: this
+        type(limits_type)           :: limits
+        
+        call read_limits(limits)
+        
+        this%POWER=20.0E6_8                         ! [W]
+        this%W_core=83.82_8                         ! [kg/s]
+        this%Q_core=this%W_core/flibe_rho(600.0_8)  ! [m^3/s]
+        this%T_in=limits%T_in_limit                 ! [Celcius] ! NEED TO GUESS AND ITERATE BC of mass flow rate
+        this%T_out=limits%T_out_limit               ! [Celcius]
+        this%T_coolant_max=0.0_8                    ! [Celcius]
+        this%T_core_max=0.0_8                       ! [Celcius]
+        
+    end subroutine inputoutput_init_LSSS
     
     
 !==============================================================================
@@ -145,6 +174,8 @@ contains
         type(limits_type)   :: limits
         
         write(*,*)
+        write(*,*)
+        write(*,*)
         write(*,'(A)')  "======================================================================"
         write(*,*)      "LSSS Calculation Results"
         write(*,'(A)')  "======================================================================"
@@ -154,7 +185,6 @@ contains
         write(*,'(A)') "----------------------------------------------------------------------"
         
         ! #3 Min inlet channel temperature and maximum outlet average channel temperature limits
-        write(*,*)
         write(*,'(A,F7.2,A)') "The maximum outlet average channel temperature exceeds ", limits%T_out_limit, " at:"
         write(*,'(F5.2,A,F7.2,A,F7.2)') LSSS%INmaxoutPOWER, " MW    T_in = ", LSSS%INmaxoutTin, "   T_out = ", LSSS%INmaxoutTout
         
@@ -180,7 +210,7 @@ contains
         ! #4 Max outlet average channel temperature and maximum coolant hot channel temperature limits
         write(*,'(A,F7.2,A)') "The maximum   coolant hot channel  temperature exceeds ", limits%T_coolant_limit, " at:"
         write(*,'(F5.2,A,F7.2,A,F7.2,A,F7.2)') LSSS%OUTmaxcoolPOWER, " MW    T_in = ", LSSS%OUTmaxcoolTin, &
-            &   "   T_out = ", LSSS%OUTmaxcoolToutavg, "   TFMAX = ", LSSS%OUTmaxcoolTmax
+            &   "   T_out = ", LSSS%OUTmaxcoolToutavg, "   TCMAX = ", LSSS%OUTmaxcoolTmax
         
         ! #5 Max outlet average channel temperature and maximum fuel hot channel temperature limits    
         write(*,*)
@@ -190,14 +220,23 @@ contains
         
         write(*,*)
         write(*,*)
-        write(*,*) "The minimum LSSS power is:"
-        write(*,'(A)') "----------------------------------------------------------------------"
+        write(*,*)       "The minimum LSSS power is:"
+        write(*,'(A)')  "---------------------------"
         write(*,'(F7.2)') LSSS%minPOWER
         
         write(*,*)
         write(*,'(A)') "======================================================================"
         write(*,*)
         
+        
+        write(50,'(F8.2,F8.2,F8.2,F8.2,F8.2,F8.2,F8.2,F8.2,F8.2,F8.2,F8.2,F8.2,F8.2,F8.2, &
+            & F8.2,F8.2,F8.2,F8.2,F8.2,F8.2,F8.2,F8.2)') &
+            & LSSS%minPOWER, LSSS%INmaxoutPOWER, LSSS%INmaxoutTin, LSSS%INmaxoutTout, &
+            & LSSS%INmaxcoolPOWER, LSSS%INmaxcoolTin, LSSS%INmaxcoolTout, LSSS%INmaxcoolTmax, LSSS%INmaxcoolToutavg, &
+            & LSSS%INmaxfuelPOWER, LSSS%INmaxfuelTin, LSSS%INmaxfuelTout, LSSS%INmaxfuelTmax, LSSS%INmaxfuelToutavg, &
+            & LSSS%OUTmaxcoolPOWER, LSSS%OUTmaxcoolTin, LSSS%OUTmaxcoolToutavg, LSSS%OUTmaxcoolTmax, &
+            & LSSS%OUTmaxfuelPOWER, LSSS%OUTmaxfuelTin, LSSS%OUTmaxfuelToutavg, LSSS%OUTmaxfuelTmax
+      
     end subroutine print_LSSS
     
     

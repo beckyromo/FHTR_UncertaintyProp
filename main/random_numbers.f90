@@ -27,9 +27,9 @@ MODULE random_numbers
         rnspread = (max-min) * rn() + min
     end function rnspread
     
-    function normal(mean,sigma)
+    function rn_normal(mean,sigma)
         implicit none
-        double precision :: normal, mean, sigma
+        double precision :: rn_normal, mean, sigma
         double precision :: tmp, fac, gsave, rsq, r1, r2
         integer flag
         save flag, gsave
@@ -49,7 +49,23 @@ MODULE random_numbers
             tmp=gsave
             flag=0
         end if
-        normal=tmp*sigma+mean
-    end function normal
+        rn_normal=tmp*sigma+mean
+    end function rn_normal
+    
+!!!!!!! http://sukhbinder.wordpress.com/fortran-random-number-generation/ !also has random number for t distribution
+!!!!!!! Random Sample from normal (Gaussian) distribution
+!!!!!!!
+!!!!!!      FUNCTION rand_normal(mean,stdev) RESULT(c)
+!!!!!!       DOUBLE PRECISION :: mean,stdev,c,temp(2)
+!!!!!!      IF(stdev <= 0.0d0) THEN
+!!!!!!
+!!!!!!        WRITE(*,*) "Standard Deviation must be +ve"
+!!!!!!      ELSE
+!!!!!!        CALL RANDOM_NUMBER(temp) ! random_number is my rnspread
+!!!!!!        r=(-2.0d0*log(temp(1)))**0.5
+!!!!!!        theta = 2.0d0*PI*temp(2)
+!!!!!!        c= mean+stdev*r*sin(theta)
+!!!!!!      END IF
+!!!!!!      END FUNCTION
     
 END MODULE random_numbers

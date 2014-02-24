@@ -16,6 +16,7 @@
     MODULE flibeprop
             
         USE global, ONLY: T_REF, sens
+        USE random_numbers, ONLY: rn_normal
     
         IMPLICIT NONE
 
@@ -27,12 +28,13 @@
             !================================================================================
             ! INPUT     ::  Temperature [Kelvin]
             ! OUTPUT    ::  Heat Capacity of Flibe [J/kg-K]
-            ! REFERENCE ::  Benes and Konings (2012)
+            ! REFERENCE ::  Benes and Konings (2012) flibe_cp=2386 pm 3% (pm 71.58)
             !================================================================================
             REAL(8) FUNCTION flibe_cp(T)
                 IMPLICIT NONE
                 REAL(8), INTENT(IN) :: T            ! Temperature [Kelvin]  
                 flibe_cp=2386.0*sens%s_cp           ! Heat Capacity of Flibe [J/kg-C]
+                !flibe_cp=rn_normal(2386.0d0,71.58d0)       ! Heat Capacity of Flibe [J/kg-C]
             END FUNCTION flibe_cp
             
             !================================================================================
@@ -40,12 +42,14 @@
             !================================================================================
             ! INPUT     ::  Temperature [Kelvin]
             ! OUTPUT    ::  Thermal conductivity of flibe [W/m-K]
-            ! REFERENCE ::  Williams et al. (2001), Cantor et al. (1968), Gierszewski et al. (1980)
+            ! REFERENCE ::  Williams et al. (2001), Cantor et al. (1968), Gierszewski et al. (1980) 
+            !               flibe_k=1.1 pm 10% (pm 0.11)
             !================================================================================
             REAL(8) FUNCTION flibe_k(T)
                 IMPLICIT NONE
                 REAL(8), INTENT(IN) :: T            ! Temperature [Kelvin]             
                 flibe_k=1.1*sens%s_k                ! Thermal conductivity of flibe [W/m-K]
+                !flibe_k=rn_normal(1.1d0,0.11d0)            ! Thermal conductivity of flibe [W/m-K]
             END FUNCTION flibe_k    
             
             !================================================================================

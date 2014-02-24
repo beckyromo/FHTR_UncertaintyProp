@@ -12,7 +12,7 @@
     MODULE global
         
         USE sensitivity, only: sensitivity_type
-        USE io, only: input_type, limits_type, output_type, LSSS_type
+        USE io, only: inputoutput_type, limits_type, LSSS_type
         
         IMPLICIT NONE
         SAVE
@@ -26,9 +26,8 @@
         ! Declare Variables
         !================================================================================
         type(sensitivity_type)          :: sens         ! sensitivities of flibe properties
-        type(input_type)                :: input        ! inputs
+        type(inputoutput_type)          :: inputoutput   ! inputs and outputs
         type(limits_type)               :: limits       ! LSSS limits
-        type(output_type)               :: output       ! outputs
         type(LSSS_type)                 :: LSSS         ! LSSS results
         !type(tally_type),allocatable    :: tal(:)       ! tally
         !integer(8)                      :: npart        ! number of particles/runs

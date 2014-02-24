@@ -31,8 +31,6 @@
 		<File RelativePath=".\global.f90"/>
 		<File RelativePath=".\io.f90"/>
 		<File RelativePath=".\main.f90"/>
-		<File RelativePath=".\PDFs.f90"/>
-		<File RelativePath=".\pebblebed.f90"/>
 		<File RelativePath=".\pipes.f90"/>
 		<File RelativePath=".\prismatic.f90"/>
 		<File RelativePath=".\random_numbers.f90"/>
