@@ -20,6 +20,8 @@
 !                       channel, prints core temperature results and outputs the 
 !                       outlet temperature, maximum coolant temperature, and 
 !                       maximum core/fuel temperature
+!  prismaticLSSSloopINLET   finds LSSS points given mass flow and inlet temp
+!  prismaticLSSSloopOULET   finds LSSS points given mass flow and outlet temp
 !  prismaticLSSS        calls subroutines pristmaticLSSSloopINLET and 
 !                       prismaticLSSSloopOUTLET
 !
@@ -417,14 +419,14 @@ CONTAINS
         !            POWER/1.0E6,W,T_in,T_out,T_coolant_max,T_core_max
         !write(*,*)
         
-        write(10,*)
-        write(10,*) "                           LSSS Results                           "
-        write(10,*) "   POWER        W     T_IN    T_OUT   TC_MAX   TF_MAX"
-        write(10,'(F9.2,F9.3,F9.3,F9.3,F9.3,F9.3)') &
-                    POWER/1.0E6,W,T_in,T_out,T_coolant_max,T_core_max
-        write(10,*)
-        write(10,*) "=================================================================="
-        write(10,*)
+        !write(10,*)
+        !write(10,*) "                           LSSS Results                           "
+        !write(10,*) "   POWER        W     T_IN    T_OUT   TC_MAX   TF_MAX"
+        !write(10,'(F9.2,F9.3,F9.3,F9.3,F9.3,F9.3)') &
+        !            POWER/1.0E6,W,T_in,T_out,T_coolant_max,T_core_max
+        !write(10,*)
+        !write(10,*) "=================================================================="
+        !write(10,*)
                 
         
         !================================================================================
@@ -823,7 +825,7 @@ DO WHILE (abs(T_in_temp - T_in) > TOLin)
                 end if
                 write(10,*) "  HEIGHT       TC       TW       TG      TCL     TCLT"
             end if
-            write(10,'(F9.3,F9.3,F9.3,F9.3,F9.3,F9.3)') I*H_core/N_core-H_core/N_core/2.0, TC(I), TW, TG(I), T_CL_core(I), T_CL_TRISO(I) 
+            write(10,'(F9.3,F9.3,F9.3,F9.3,F9.3,F9.3)') I*H_core/N_core-H_core/N_core/2.0, TC(I), T_w_core(I), TG(I), T_CL_core(I), T_CL_TRISO(I) 
             end do
         end if
     
@@ -853,14 +855,14 @@ END DO
         !            POWER/1.0E6,W,T_in,T_out,T_coolant_max,T_core_max
         !write(*,*)
         
-        write(10,*)
-        write(10,*) "                           LSSS Results                           "
-        write(10,*) "   POWER        W     T_IN    T_OUT   TC_MAX   TF_MAX"
-        write(10,'(F9.2,F9.3,F9.3,F9.3,F9.3,F9.3)') &
-                    POWER/1.0E6,W,T_in,T_out,T_coolant_max,T_core_max
-        write(10,*)
-        write(10,*) "=================================================================="
-        write(10,*)
+        !write(10,*)
+        !write(10,*) "                           LSSS Results                           "
+        !write(10,*) "   POWER        W     T_IN    T_OUT   TC_MAX   TF_MAX"
+        !write(10,'(F9.2,F9.3,F9.3,F9.3,F9.3,F9.3)') &
+        !            POWER/1.0E6,W,T_in,T_out,T_coolant_max,T_core_max
+        !write(10,*)
+        !write(10,*) "=================================================================="
+        !write(10,*)
                 
         
 
@@ -875,7 +877,7 @@ END DO
     !================================================================================
     SUBROUTINE prismaticLSSSloopINLET(inputoutput,limits,LSSS)
 
-        USE io, ONLY: inputoutput_init_Tin
+        USE io, ONLY: inputoutput_init_outputs
         
         IMPLICIT NONE
         
@@ -904,8 +906,8 @@ END DO
         real(8)                         :: T_out_limit          ! LSSS limit for T_out (max T_out temp in avg ch)
                 
      
-        ! Initialize inputs
-        call inputoutput_init_Tin(inputoutput)
+        ! Initialize outputs
+        call inputoutput_init_outputs(inputoutput)
         ! Overide intialized arguments
         
         
@@ -916,6 +918,7 @@ END DO
         
         POWER_LOW=1.0E6
         POWER_HIGH=70.0E6
+        LSSS%minPOWER=POWER_HIGH/1.0E6
       
         !================================================================================
         ! Find power level for LSSS limits for given T_in and flow rate 
@@ -937,7 +940,9 @@ END DO
                 LSSS%INmaxoutPOWER=POWER/1.0E6
                 LSSS%INmaxoutTin=inputoutput%T_in
                 LSSS%INmaxoutTout=inputoutput%T_out
-                LSSS%minPOWER=POWER/1.0E6
+                if (POWER/1.0E6 < LSSS%minPOWER) then
+                    LSSS%minPOWER=POWER/1.0E6
+                end if
             end if
             !================================================================================
             ! Calculate core temperatures for hot channel
@@ -1033,6 +1038,8 @@ END DO
             ! Calculate core temperatures for average channel
             !================================================================================
             call prismaticcoreTout(inputoutput,1,0)
+            LSSS%OUTmaxcoolToutavg=inputoutput%T_out
+            LSSS%OUTmaxfuelToutavg=inputoutput%T_out
 
             !================================================================================
             ! Calculate core temperatures for hot channel
@@ -1121,7 +1128,9 @@ END DO
    
     END SUBROUTINE prismaticLSSS
             
-            
+
+    
+        
     !================================================================================
     !  FUNCTION: CALCULATE HEAT TRANSFER COEFFICIENT
     !================================================================================

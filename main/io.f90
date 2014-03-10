@@ -2,7 +2,7 @@ module io
     use flibeprop, only:flibe_rho
     implicit none
     private
-    public :: read_limits, inputoutput_init_Tin, inputoutput_init_Tout, LSSS_init, print_LSSS
+    public :: read_limits, inputoutput_init_Tin, inputoutput_init_Tout, inputoutput_init_inputs, inputoutput_init_outputs, LSSS_init, print_LSSS
   
     ! declare variables
     type,public :: inputoutput_type
@@ -65,6 +65,19 @@ contains
         
     end subroutine read_limits
   
+
+!==============================================================================
+! inputoutput_init_inputs
+!==============================================================================    
+    subroutine inputoutput_init_inputs(this)
+        ! declare arguments
+        type(inputoutput_type)      :: this      
+        
+        this%POWER=20.0E6_8                         ! [W]
+        this%W_core=83.82_8                         ! [kg/s]
+        this%Q_core=this%W_core/flibe_rho(600.0_8)  ! [m^3/s]
+        
+    end subroutine inputoutput_init_inputs 
     
 !==============================================================================
 ! inputoutput_init_T_in
@@ -76,9 +89,6 @@ contains
         
         call read_limits(limits)
         
-        this%POWER=20.0E6_8                         ! [W]
-        this%W_core=83.82_8                         ! [kg/s]
-        this%Q_core=this%W_core/flibe_rho(600.0_8)  ! [m^3/s]
         this%T_in=limits%T_in_limit                 ! [Celcius]
         this%T_out=0.0_8                            ! [Celcius]
         this%T_coolant_max=0.0_8                    ! [Celcius]
@@ -97,16 +107,26 @@ contains
         
         call read_limits(limits)
         
-        this%POWER=20.0E6_8                         ! [W]
-        this%W_core=83.82_8                         ! [kg/s]
-        this%Q_core=this%W_core/flibe_rho(600.0_8)  ! [m^3/s]
         this%T_in=limits%T_in_limit                 ! [Celcius] ! NEED TO GUESS AND ITERATE BC of mass flow rate
         this%T_out=limits%T_out_limit               ! [Celcius]
         this%T_coolant_max=0.0_8                    ! [Celcius]
         this%T_core_max=0.0_8                       ! [Celcius]
         
     end subroutine inputoutput_init_Tout
+
     
+!==============================================================================
+! inputoutput_init_outputs
+!==============================================================================    
+    subroutine inputoutput_init_outputs(this)
+        ! declare arguments
+        type(inputoutput_type)      :: this      
+        
+        this%T_out=0.0_8               ! [Celcius]
+        this%T_coolant_max=0.0_8                    ! [Celcius]
+        this%T_core_max=0.0_8                       ! [Celcius]
+        
+    end subroutine inputoutput_init_outputs    
     
 !==============================================================================
 ! inputoutput_init_LSSS
@@ -210,13 +230,15 @@ contains
         ! #4 Max outlet average channel temperature and maximum coolant hot channel temperature limits
         write(*,'(A,F7.2,A)') "The maximum   coolant hot channel  temperature exceeds ", limits%T_coolant_limit, " at:"
         write(*,'(F5.2,A,F7.2,A,F7.2,A,F7.2)') LSSS%OUTmaxcoolPOWER, " MW    T_in = ", LSSS%OUTmaxcoolTin, &
-            &   "   T_out = ", LSSS%OUTmaxcoolToutavg, "   TCMAX = ", LSSS%OUTmaxcoolTmax
+            &   "   T_out = ", LSSS%OUTmaxcoolTout, "   TCMAX = ", LSSS%OUTmaxcoolTmax
+        write(*,'(A,F7.2)') "T_out_avg = ", LSSS%OUTmaxcoolToutavg
         
         ! #5 Max outlet average channel temperature and maximum fuel hot channel temperature limits    
         write(*,*)
         write(*,'(A,F7.2,A)') "The maximum    fuel hot channel    temperature exceeds ", limits%T_fuel_limit, " at:"
         write(*,'(F5.2,A,F7.2,A,F7.2,A,F7.2)') LSSS%OUTmaxfuelPOWER, " MW    T_in = ", LSSS%OUTmaxfuelTin, &
-            &   "   T_out = ", LSSS%OUTmaxfuelToutavg, "   TFMAX = ", LSSS%OUTmaxfuelTmax
+            &   "   T_out = ", LSSS%OUTmaxfuelTout, "   TFMAX = ", LSSS%OUTmaxfuelTmax
+        write(*,'(A,F7.2)') "T_out_avg = ", LSSS%OUTmaxfuelToutavg
         
         write(*,*)
         write(*,*)
