@@ -652,9 +652,9 @@ CONTAINS
         ACTUAL_POWER=POWER_NORM*POWER+DECAY_HEAT        
 
 ! ITERATE TO GET T_in        
-TOLin=1.0e-3
+TOLin=1.0e0
 T_in_temp=0       
-DO WHILE (abs(T_in_temp - T_in) > TOLin) 
+DO WHILE (abs(T_in_temp - T_in) > TOLin)   ! BOTTLENECK !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     T_in_temp=T_in
         
     !================================================================================
@@ -702,6 +702,8 @@ DO WHILE (abs(T_in_temp - T_in) > TOLin)
         ! Loop through each core CV node
         DO I=N_core,1,-1
             
+!!!!            write(*,*) "Power", POWER, "Tout", I
+            
             IF (I==N_core) THEN
                 enthalpy_core(I)=flibe_enthalpy(T_out)-ACTUAL_POWER*AFP(I)*FH*FKZ/W ! minus
                 TC(I)=( flibe_temperature(enthalpy_core(I)) + T_out ) / 2.0 ! Average coolant temperature in node ! T_out vs T_in
@@ -720,7 +722,7 @@ DO WHILE (abs(T_in_temp - T_in) > TOLin)
             ! =======================================================
             ! Find wall temperature and iterate with HTC correlations
             ! =======================================================
-            TOL=1.0e-6
+            TOL=1.0e-4
             TW=TC(I)
             mu_w=flibe_mu(TW)
             mu_w_temp=0
@@ -975,7 +977,7 @@ END DO
             
         end do
         !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-        !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+        !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-   
     END SUBROUTINE prismaticLSSSloopINLET
         
     
@@ -1029,6 +1031,8 @@ END DO
         coolantflag=.false.
         do POWER=POWER_LOW,POWER_HIGH,0.01E6
             
+    !!!!        write(*,*) POWER
+            
             ! Initialize inputs
             call inputoutput_init_Tout(inputoutput)
             ! Overide intialized arguments
@@ -1040,6 +1044,10 @@ END DO
             call prismaticcoreTout(inputoutput,1,0)
             LSSS%OUTmaxcoolToutavg=inputoutput%T_out
             LSSS%OUTmaxfuelToutavg=inputoutput%T_out
+            
+            call prismaticcoreTin(inputoutput,1,0)
+            !!!!write(*,*) inputoutput
+            
 
             !================================================================================
             ! Calculate core temperatures for hot channel
@@ -1068,6 +1076,7 @@ END DO
                 end if
             end if
             
+             
         end do
 
         !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -1113,6 +1122,8 @@ END DO
     !================================================================================    
     SUBROUTINE prismaticLSSS(inputoutput,limits,LSSS)
         
+    use io, only: print_lsss
+    
         IMPLICIT NONE
         
         type(inputoutput_type)          :: inputoutput
@@ -1122,9 +1133,13 @@ END DO
         write(*,*)
         write(*,*) "Calculating LSSS Data Points..."
         call prismaticLSSSloopINLET(inputoutput,limits,LSSS)
+        !write(*,*) "inlet done"
+        !call print_LSSS(LSSS,inputoutput%Q_core,limits)
         call prismaticLSSSloopOUTLET(inputoutput,limits,LSSS)
         write(*,*) "LSSS Calculation Complete"
         write(*,*)
+        !call print_LSSS(LSSS,inputoutput%Q_core,limits)
+
    
     END SUBROUTINE prismaticLSSS
             
@@ -1166,14 +1181,19 @@ END DO
         REAL(8)                 :: Nu       ! Nusselt number
         REAL(8)                 :: mu_b     ! Viscosity of flibe in bulk
         REAL(8)                 :: mu_w     ! Viscosity of flibe at the wall
+        REAL(8)                 :: cp       ! Heat capacity of flibe
+        REAL(8)                 :: k        ! Thermal conductivity of flibe
         REAL(8)                 :: xplus    ! x plus = 2*(L/D)/(Re*Pr)
                 
         ! AVERAGE FLUID PROPERTIES
-        G=W/(PI*(DC/2.0)**2.0)          ! [kg/m^2-s]
-        Re=G*DC/flibe_mu(T)
-        Pr=flibe_cp(T)*flibe_mu(T)/flibe_k(T)
         mu_b=flibe_mu(T)
         mu_w=flibe_mu(TW)
+        G=W/(PI*(DC/2.0)**2.0)          ! [kg/m^2-s]
+        Re=G*DC/mu_b
+        cp=flibe_cp(T)
+        k=flibe_k(T)
+        Pr=cp*mu_b/k
+        
         
         !write(*,*) "Re=", Re
         !write(*,*) "Pr=", Pr
@@ -1212,7 +1232,7 @@ END DO
         end if
 
         !write(*,*) "Nu=", Nu
-        HTC=Nu*flibe_k(T)/DC
+        HTC=Nu*k/DC
                 
     END FUNCTION HTC
             

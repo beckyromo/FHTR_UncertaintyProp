@@ -15,7 +15,7 @@
     !******************************************************************************** 
     MODULE flibeprop
             
-        USE global, ONLY: T_REF, sens
+        USE global, ONLY: T_REF, sens, nd
         USE random_numbers, ONLY: rn_normal
     
         IMPLICIT NONE
@@ -32,9 +32,15 @@
             !================================================================================
             REAL(8) FUNCTION flibe_cp(T)
                 IMPLICIT NONE
-                REAL(8), INTENT(IN) :: T            ! Temperature [Kelvin]  
-                flibe_cp=2386.0*sens%s_cp           ! Heat Capacity of Flibe [J/kg-C]
-                !flibe_cp=rn_normal(2386.0d0,71.58d0)       ! Heat Capacity of Flibe [J/kg-C]
+                REAL(8), INTENT(IN)     :: T            ! Temperature [Kelvin] 
+               ! INTEGER(8), INTENT(IN)  :: nd           ! 1 for norm dist sampling, 0 for not
+                
+                !!!IF (nd%cp==1) THEN
+                !!!    flibe_cp=rn_normal(2386.0d0,71.58d0)    ! Heat Capacity of Flibe [J/kg-C]    
+                !!!ELSE
+                    flibe_cp=2386.0*sens%s_cp               ! Heat Capacity of Flibe [J/kg-C]
+                !!!ENDIF
+                    
             END FUNCTION flibe_cp
             
             !================================================================================
@@ -47,9 +53,14 @@
             !================================================================================
             REAL(8) FUNCTION flibe_k(T)
                 IMPLICIT NONE
-                REAL(8), INTENT(IN) :: T            ! Temperature [Kelvin]             
-                flibe_k=1.1*sens%s_k                ! Thermal conductivity of flibe [W/m-K]
-                !flibe_k=rn_normal(1.1d0,0.11d0)            ! Thermal conductivity of flibe [W/m-K]
+                REAL(8), INTENT(IN) :: T                ! Temperature [Kelvin]   
+                
+                !!!IF (nd%k==1) THEN
+                !!!    flibe_k=rn_normal(1.1d0,0.11d0)     ! Thermal conductivity of flibe [W/m-K]    
+                !!!ELSE
+                    flibe_k=1.1*sens%s_k                ! Thermal conductivity of flibe [W/m-K]
+                !!!ENDIF
+                
             END FUNCTION flibe_k    
             
             !================================================================================

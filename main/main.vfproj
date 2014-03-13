@@ -34,6 +34,7 @@
 		<File RelativePath=".\pipes.f90"/>
 		<File RelativePath=".\prismatic.f90"/>
 		<File RelativePath=".\random_numbers.f90"/>
+		<File RelativePath=".\montecarlo.f90"/>
 		<File RelativePath=".\sensitivity.f90"/>
 		<File RelativePath=".\trisoprop.f90"/></Filter></Files>
 	<Globals/></VisualStudioProject>

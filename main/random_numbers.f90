@@ -7,13 +7,14 @@
 !  FUNCTIONS:
 !   rn          generates a random number
 !   rnspread    generates a random number between a min and max value
-!   normal      generates a normal distribution with a mean and stddev (sigma)
+!   rn_normal   generates a normal distribution with a mean and stddev (sigma)
 !
 !******************************************************************************** 
 MODULE random_numbers
     
     CONTAINS
     
+    ! FUNCTION rn
     function rn()
         implicit none
         double precision :: rn, x
@@ -21,12 +22,14 @@ MODULE random_numbers
         rn=x
     end function rn
     
+    ! FUNCTION rnspread
     function rnspread(min,max)
         implicit none
         double precision :: rnspread, min, max
         rnspread = (max-min) * rn() + min
     end function rnspread
     
+    ! FUNCTION rn_normal
     function rn_normal(mean,sigma)
         implicit none
         double precision :: rn_normal, mean, sigma
