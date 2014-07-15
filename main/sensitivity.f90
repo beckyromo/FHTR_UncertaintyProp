@@ -107,7 +107,7 @@ contains
 !==============================================================================
 ! MCsensitivity_study
 !==============================================================================
-    subroutine MCsensitivity_study(this,nhist,sens,inputoutput,limits,LSSS)
+    subroutine MCsensitivity_study(this,shist,nhist,sens,inputoutput,limits,LSSS)
     
         use io, only: inputoutput_type, limits_type, LSSS_type, LSSS_init, inputoutput_init_Tin, inputoutput_init_outputs
         use random_numbers, only: rn_normal
@@ -118,22 +118,38 @@ contains
         integer                 :: this     ! variable selector: 1=all, 2=cp, 3=k, 4=rho, 5=mu
         type(sensitivity_type)  :: sens
         integer                 :: i        ! count
-        integer                 :: nhist    ! number of histories
+        integer                 :: shist    ! number of histories to start from
+        integer                 :: nhist    ! number of histories to complete
         type(inputoutput_type)  :: inputoutput
         type(limits_type)       :: limits
         type(LSSS_type)         :: LSSS
+        real(8)                 :: temp
         
         write(*,*)
         write(*,'(A)')  "======================================================================"
         write(*,*)      "Monte Carlo Sensitivity Study Begin"
+        write(*,*)
+        write(*,*)      shist, " histories skipped"
+        write(*,*)      nhist, " histories will be run"
         write(*,'(A)')  "======================================================================"
+        
                 
         open(50,FILE="histories.txt")
         
         if (this==1) then
             write(*,*) "All parameters:"
+            do i=1,shist*4
+                temp=rn_normal(1.0d0,0.1d0)
+            end do
+            write(*,*) i/4, " histories of random numbers only completed; runs will now begin:"
+        else
+            do i=1,shist
+                temp=rn_normal(1.0d0,0.1d0)
+            end do
+            write(*,*) i, " histories of random numbers only completed; runs will now begin:"
         end if
         
+       
         do i=1,nhist
             
             if (this==1) then
@@ -156,8 +172,8 @@ contains
             call inputoutput_init_Tin(inputoutput)
             !call inputoutput_init_outputs(inputoutput)
                        
-            write(*,*)
-            write(*,'(I5,4(F9.6))') nhist-i+1, sens          
+            !write(*,*)
+            write(*,'(I5,4(F9.6))') i, sens          
 
             ! Run LSSS
             call prismaticLSSS(inputoutput,limits,LSSS)

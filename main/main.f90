@@ -12,6 +12,7 @@ PROGRAM main
     use sensitivity, ONLY: sensitivity_init,sensitivity_study,MCsensitivity_study
     use montecarlo, ONLY: nd_init_off,mcnd_study
     use prismatic, ONLY: prismaticcoreTin,prismaticcoreTout,prismaticLSSS
+    use natcirc, ONLY: natcirccoreTin,natcirccoreTout
 !    use flibeprop, ONLY: flibe_rho
     use trisoprop, ONLY: k_print
     use random_numbers, ONLY: rn_normal
@@ -42,7 +43,7 @@ PROGRAM main
         ! Open files for output
         !================================================================================       
         open(10,FILE="output.txt")
-        !open(20,FILE="LSSS.txt")
+        open(20,FILE="LSSS.txt")
         
         
         !================================================================================
@@ -55,7 +56,7 @@ PROGRAM main
         call inputoutput_init_inputs(inputoutput)
         call inputoutput_init_Tin(inputoutput)
 
-        !!
+        
         !!!================================================================================
         !!! Sensitivity Study Calculations
         !!!================================================================================ 
@@ -68,26 +69,65 @@ PROGRAM main
         !!close(60)
         
 
-        !================================================================================
-        ! Calculates LSSS for prismatic core
-        !================================================================================
-        call CPU_TIME(t1)
-        call SYSTEM_CLOCK(t,clock_rate,clock_max)
-        ! reset sensitivities
-        call sensitivity_init(sens)
-        ! initialize inputs and outputs
-        call inputoutput_init_Tin(inputoutput)
-        ! Run LSSS  
-        call prismaticLSSS(inputoutput,limits,LSSS)
-        ! Print LSSS
-        call print_LSSS(LSSS,inputoutput%Q_core,limits)
-        call CPU_TIME(t2)
-        write ( *, * ) 'Elapsed CPU time = ', t2 - t1
-        call SYSTEM_CLOCK(tt,clock_rate,clock_max)
-        write ( *, * ) 'Elapsed real time = ', real ( tt - t ) / real ( clock_rate )
-        write(*,*)
-        write(*,*)
-        write(*,*)
+        !!!!================================================================================
+        !!!! Calculates LSSS for prismatic core
+        !!!!================================================================================
+        !!!call CPU_TIME(t1)
+        !!!call SYSTEM_CLOCK(t,clock_rate,clock_max)
+        !!!! reset sensitivities
+        !!!call sensitivity_init(sens)
+        !!!! initialize inputs and outputs
+        !!!call inputoutput_init_Tin(inputoutput)
+        !!!! Run LSSS  
+        !!!call prismaticLSSS(inputoutput,limits,LSSS)
+        !!!! Print LSSS
+        !!!call print_LSSS(LSSS,inputoutput%Q_core,limits)
+        !!!call CPU_TIME(t2)
+        !!!write ( *, * ) 'Elapsed CPU time = ', t2 - t1
+        !!!call SYSTEM_CLOCK(tt,clock_rate,clock_max)
+        !!!write ( *, * ) 'Elapsed real time = ', real ( tt - t ) / real ( clock_rate )
+        !!!write(*,*)
+        !!!write(*,*)
+        !!!
+        !!!!================================================================================
+        !!!! Monte Carlo Uncertainty Sensitivity Study Calculations
+        !!!!================================================================================ 
+        !!!call CPU_TIME(t1)
+        !!!call SYSTEM_CLOCK(t,clock_rate,clock_max)
+        !!!! Initialize sensitivities to 1.0
+        !!!call sensitivity_init(sens)
+        !!!! Run MCsensitivity loop
+        !!!call MCsensitivity_study(1,211085,13915,sens,inputoutput,limits,LSSS) !2=cp, 3=k, 4=rho, 5=mu
+        !!!call CPU_TIME(t2)
+        !!!write ( *, * ) 'Single Point: Elapsed CPU time = ', t2 - t1
+        !!!call SYSTEM_CLOCK(tt,clock_rate,clock_max)
+        !!!write ( *, * ) 'Single Point: Elapsed real time = ', real ( tt - t ) / real ( clock_rate )
+        
+        
+        
+        write(*,*) "natcirc testing"
+        WRITE(*,*) "==============="
+        do i=1.0e6,30.0e6,2.0e6
+             ! reset sensitivities
+            call sensitivity_init(sens)
+            ! initialize inputs and outputs
+            call inputoutput_init_Tin(inputoutput)
+            ! Overide intialized arguments
+            inputoutput%Q_core=0.0010_8
+            inputoutput%POWER=i
+            write(*,*) "================================================================"
+            call natcirccoreTin(inputoutput,1,1)
+            call prismaticcoreTin(inputoutput,2,1)
+            write(*,*) "================================================================"
+        end do
+        
+        !!write(*,*) "prismatic non-allocate"
+        !!! reset sensitivities
+        !!call sensitivity_init(sens)
+        !!! initialize inputs and outputs
+        !!call inputoutput_init_Tin(inputoutput)
+        !!call prismaticcoreTin(inputoutput,2,1)
+        !!call prismaticcoreTout(inputoutput,2,1)
         
 
         !!!================================================================================
@@ -112,77 +152,66 @@ PROGRAM main
         !!write(*,*)
         !!write(*,*)
         
-        !================================================================================
-        ! Monte Carlo Uncertainty Sensitivity Study Calculations
-        !================================================================================ 
-        call CPU_TIME(t1)
-        call SYSTEM_CLOCK(t,clock_rate,clock_max)
-        ! Initialize sensitivities to 1.0
-        call sensitivity_init(sens)
-        ! Run MCsensitivity loop
-        call MCsensitivity_study(2,10000,sens,inputoutput,limits,LSSS) !2=cp, 3=k, 4=rho, 5=mu
-        call CPU_TIME(t2)
-        write ( *, * ) 'Single Point: Elapsed CPU time = ', t2 - t1
-        call SYSTEM_CLOCK(tt,clock_rate,clock_max)
-        write ( *, * ) 'Single Point: Elapsed real time = ', real ( tt - t ) / real ( clock_rate )
+                
+
         
         
-        !================================================================================
-        ! Calculate LSSS for single pt for in avg and hot channels given Tin
-        !================================================================================
-        call CPU_TIME(t1)
-        call SYSTEM_CLOCK(t,clock_rate,clock_max)
-        ! Initialize inputs and outputs
-        call inputoutput_init_inputs(inputoutput)
-        call inputoutput_init_Tin(inputoutput)
-        ! Overide intialized arguments
-        inputoutput%POWER=23.55e6_8
-        inputoutput%T_in=604.29_8
-        !write(10,'(A,F6.2)') "SINGLE POWER LEVEL OUTPUT OF ", inputoutput%POWER/1.0E6
-        write(*,*)
-        write(*,*) "Calculating..."
-        write(*,*)
-        write(*,'(A,F6.2)') "SINGLE POWER LEVEL OUTPUT OF ", inputoutput%POWER/1.0E6
-        write(*,'(4(F9.6))') sens
-        write(*,*)
-        write(*,*) "           POWER        W        Q       In      Out     Cool     Fuel"
-        call prismaticcoreTin(inputoutput,1,1) 
-        write(*,'(A,E9.2,F9.2,F9.4,F9.3,F9.3,F9.3,F9.3)') "AVG CH: ", inputoutput         
-        call prismaticcoreTin(inputoutput,2,0)
-        write(*,'(A,E9.2,F9.2,F9.4,F9.3,F9.3,F9.3,F9.3)') "HOT CH: ", inputoutput  
-        call CPU_TIME(t2)
-        write ( *, * ) 'Single Point: Elapsed CPU time = ', t2 - t1
-        call SYSTEM_CLOCK(tt,clock_rate,clock_max)
-        write ( *, * ) 'Single Point: Elapsed real time = ', real ( tt - t ) / real ( clock_rate )
+        !!!================================================================================
+        !!! Calculate LSSS for single pt for in avg and hot channels given Tin
+        !!!================================================================================
+        !!call CPU_TIME(t1)
+        !!call SYSTEM_CLOCK(t,clock_rate,clock_max)
+        !!! Initialize inputs and outputs
+        !!call inputoutput_init_inputs(inputoutput)
+        !!call inputoutput_init_Tin(inputoutput)
+        !!! Overide intialized arguments
+        !!inputoutput%POWER=23.55e6_8
+        !!inputoutput%T_in=604.29_8
+        !!!write(10,'(A,F6.2)') "SINGLE POWER LEVEL OUTPUT OF ", inputoutput%POWER/1.0E6
+        !!write(*,*)
+        !!write(*,*) "Calculating..."
+        !!write(*,*)
+        !!write(*,'(A,F6.2)') "SINGLE POWER LEVEL OUTPUT OF ", inputoutput%POWER/1.0E6
+        !!write(*,'(4(F9.6))') sens
+        !!write(*,*)
+        !!write(*,*) "           POWER        W        Q       In      Out     Cool     Fuel"
+        !!call prismaticcoreTin(inputoutput,1,1) 
+        !!write(*,'(A,E9.2,F9.2,F9.4,F9.3,F9.3,F9.3,F9.3)') "AVG CH: ", inputoutput         
+        !!call prismaticcoreTin(inputoutput,2,0)
+        !!write(*,'(A,E9.2,F9.2,F9.4,F9.3,F9.3,F9.3,F9.3)') "HOT CH: ", inputoutput  
+        !!call CPU_TIME(t2)
+        !!write ( *, * ) 'Single Point: Elapsed CPU time = ', t2 - t1
+        !!call SYSTEM_CLOCK(tt,clock_rate,clock_max)
+        !!write ( *, * ) 'Single Point: Elapsed real time = ', real ( tt - t ) / real ( clock_rate )
         
         
-        !================================================================================
-        ! Calculate LSSS for single pt for in avg and hot channels given Toutavg
-        !================================================================================
-        call CPU_TIME(t1)
-        call SYSTEM_CLOCK(t,clock_rate,clock_max)
-        ! Initialize inputs and outputs
-        call inputoutput_init_inputs(inputoutput)
-        call inputoutput_init_Tout(inputoutput)
-        ! Overide intialized arguments
-        inputoutput%T_out=720.002_8
-        inputoutput%POWER=21.13E6
-        !write(10,'(A,F6.2)') "SINGLE POWER LEVEL OUTPUT OF ", inputoutput%POWER/1.0E6
-        write(*,*)
-        write(*,*) "Calculating..."
-        write(*,*)
-        write(*,'(A,F6.2)') "SINGLE POWER LEVEL OUTPUT OF ", inputoutput%POWER/1.0E6
-        write(*,'(4(F9.6))') sens
-        write(*,*)
-        write(*,*) "           POWER        W        Q       In      Out     Cool     Fuel"
-        call prismaticcoreTout(inputoutput,1,1) 
-        write(*,'(A,E9.2,F9.2,F9.4,F9.3,F9.3,F9.3,F9.3)') "AVG CH: ", inputoutput 
-        call prismaticcoreTin(inputoutput,2,1)
-        write(*,'(A,E9.2,F9.2,F9.4,F9.3,F9.3,F9.3,F9.3)') "HOT CH: ", inputoutput  
-        call CPU_TIME(t2)
-        write ( *, * ) 'Single Point: Elapsed CPU time = ', t2 - t1
-        call SYSTEM_CLOCK(tt,clock_rate,clock_max)
-        write ( *, * ) 'Single Point: Elapsed real time = ', real ( tt - t ) / real ( clock_rate )
+        !!!================================================================================
+        !!! Calculate LSSS for single pt for in avg and hot channels given Toutavg
+        !!!================================================================================
+        !!call CPU_TIME(t1)
+        !!call SYSTEM_CLOCK(t,clock_rate,clock_max)
+        !!! Initialize inputs and outputs
+        !!call inputoutput_init_inputs(inputoutput)
+        !!call inputoutput_init_Tout(inputoutput)
+        !!! Overide intialized arguments
+        !!inputoutput%T_out=720.002_8
+        !!inputoutput%POWER=21.13E6
+        !!!write(10,'(A,F6.2)') "SINGLE POWER LEVEL OUTPUT OF ", inputoutput%POWER/1.0E6
+        !!write(*,*)
+        !!write(*,*) "Calculating..."
+        !!write(*,*)
+        !!write(*,'(A,F6.2)') "SINGLE POWER LEVEL OUTPUT OF ", inputoutput%POWER/1.0E6
+        !!write(*,'(4(F9.6))') sens
+        !!write(*,*)
+        !!write(*,*) "           POWER        W        Q       In      Out     Cool     Fuel"
+        !!call prismaticcoreTout(inputoutput,1,1) 
+        !!write(*,'(A,E9.2,F9.2,F9.4,F9.3,F9.3,F9.3,F9.3)') "AVG CH: ", inputoutput 
+        !!call prismaticcoreTin(inputoutput,2,1)
+        !!write(*,'(A,E9.2,F9.2,F9.4,F9.3,F9.3,F9.3,F9.3)') "HOT CH: ", inputoutput  
+        !!call CPU_TIME(t2)
+        !!write ( *, * ) 'Single Point: Elapsed CPU time = ', t2 - t1
+        !!call SYSTEM_CLOCK(tt,clock_rate,clock_max)
+        !!write ( *, * ) 'Single Point: Elapsed real time = ', real ( tt - t ) / real ( clock_rate )
         
         
  
@@ -191,7 +220,7 @@ PROGRAM main
         ! Close files for output
         !================================================================================                            
         close(10)
-        !close(20)
+        close(20)
         
         
         !================================================================================
@@ -199,6 +228,8 @@ PROGRAM main
         !================================================================================
         write(*,*)
         write(*,*) 'Program Complete'
+        write(*,*)
+        write(*,*) 'Hit Enter to Exit'
         read(*,*)
 
 

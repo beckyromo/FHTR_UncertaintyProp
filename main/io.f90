@@ -75,6 +75,7 @@ contains
         
         this%POWER=20.0E6_8                         ! [W]
         this%W_core=83.82_8                         ! [kg/s]
+!this%W_core=170.65        ! NaFZrF??????????????????????/
         this%Q_core=this%W_core/flibe_rho(600.0_8)  ! [m^3/s]
         
     end subroutine inputoutput_init_inputs 

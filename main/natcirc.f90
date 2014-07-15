@@ -1,32 +1,32 @@
 !********************************************************************************
 !
-!  MODULE:  prismatic
+!  MODULE:  natcir
 !
-!  PURPOSE: Contains functions for prismatic core calculations and subroutines 
-!           to do LSSS calculations for a prismatic core
+!  PURPOSE: Contains functions and subroutines for prismatic core natural 
+!           circulation LSSS calculations
 !
 !  FUNCTIONS:
 !  HTC
 !  FF
 !
 !  SUBROUTINES:
-!  prismaticcoreTin     calculates core temperatures for given power, mass flow 
+!  natcirccoreTin     calculates core temperatures for given power, mass flow 
 !                       rate, and inlet temperature for either average or hot 
 !                       channel, prints core temperature results and outputs the 
 !                       outlet temperature, maximum coolant temperature, and 
 !                       maximum core/fuel temperature
-!  prismaticcoreTout    calculates core temperatures for given power, mass flow 
+!  natcirccoreTout    calculates core temperatures for given power, mass flow 
 !                       rate, and outlet temperature for either average or hot 
 !                       channel, prints core temperature results and outputs the 
 !                       outlet temperature, maximum coolant temperature, and 
 !                       maximum core/fuel temperature
-!  prismaticLSSSloopINLET   finds LSSS points given mass flow and inlet temp
-!  prismaticLSSSloopOULET   finds LSSS points given mass flow and outlet temp
-!  prismaticLSSS        calls subroutines pristmaticLSSSloopINLET and 
-!                       prismaticLSSSloopOUTLET
+!  natcircLSSSloopINLET   finds LSSS points given mass flow and inlet temp
+!  natcircLSSSloopOULET   finds LSSS points given mass flow and outlet temp
+!  natcircLSSS        calls subroutines natcircLSSSloopINLET and 
+!                       natcircLSSSloopOUTLET
 !
 !******************************************************************************** 
-MODULE prismatic
+MODULE natcirc
             
     USE global
         
@@ -36,7 +36,7 @@ MODULE prismatic
 CONTAINS
     
     !================================================================================
-    !  SUBROUTINE: prismaticcoreTin
+    !  SUBROUTINE: natcirccoreTin
     !================================================================================
     ! parameters (arguments_type) -->
     ! INPUTS
@@ -53,7 +53,7 @@ CONTAINS
     ! REFERENCES
     !   Yao's Code, which uses power distribution data, LS-VHTR
     !================================================================================
-    SUBROUTINE prismaticcoreTin(inputoutput,channel,axialprint)
+    SUBROUTINE natcirccoreTin(inputoutput,channel,axialprint)
     
         USE global
         USE flibeprop, ONLY: flibe_cp, flibe_k, flibe_rho, flibe_mu, flibe_enthalpy, flibe_temperature
@@ -125,7 +125,9 @@ CONTAINS
         real(8)             :: HTC_core         ! Heat transfer coefficient in core [W/m^2-C]
         real(8)             :: A_HTC            ! Area of core with convection heat transfer [m^2]
         real(8)             :: ACTUAL_POWER     ! Actual Power [W]
-        real(8)             :: dP_core          ! Core pressure drop [Pa] 
+        real(8)             :: dP_core          ! Core pressure drop [Pa]
+        real(8)             :: dP_core_ff       ! Core friction and form pressure drop [Pa]
+        real(8)             :: dP_core_g        ! Core gravity pressure drop [Pa]
         
         real(8),allocatable :: enthalpy_core(:) ! Enthalpy in each node [J?/kg]
         real(8),allocatable :: T_w_core(:)      ! Surface temperature at each node  [Celsius]
@@ -156,7 +158,24 @@ CONTAINS
         real(8)             :: R_cgf            ! Radius of unit cell (coolant plus graphite plus fuel)
         real(8)             :: k_mod            ! Thermal conductivity factor multiplier for fuel (cyl vs annular)
 
-        
+        real(8)             :: W_temp           ! Mass flow rate place holder [kg/s]
+        real(8)             :: WTOL             ! While loop error tolerance for mass flow rate     
+        real(8)             :: D_coldleg        ! Diameter of cold leg piping
+        real(8)             :: D_hotleg         ! Diameter of hot leg piping
+        real(8)             :: L_coldleg        ! Length of cold leg piping in horizontal direction
+        real(8)             :: H_coldleg        ! Length of cold leg piping in vertical direction
+        real(8)             :: L_hotleg         ! Length of hot leg piping in horizontal direction
+        real(8)             :: H_hotleg         ! Length of the hot leg piping in the vertical direction
+        real(8)             :: Ltc              ! Thermal Center Length
+        real(8)             :: dP_coldleg       ! Pressure drop in the cold leg [Pa]
+        real(8)             :: dP_cold_ff       ! Cold leg friction and form pressure drop [Pa]
+        real(8)             :: dP_cold_g        ! Cold leg gravity pressure drop [Pa]
+        real(8)             :: dP_hotleg        ! Pressure drop in the hot leg [Pa[
+        real(8)             :: dP_hot_ff        ! Hot leg friction and form pressure drop [Pa]
+        real(8)             :: dP_hot_g         ! Hot leg gravity pressure drop [Pa]
+        real(8)             :: dP               ! Pressure drop in the primary loop [Pa]
+        real(8)             :: dP_ff            ! Friction and form pressure drop in the primary loop [Pa]
+        real(8)             :: dP_g             ! Gravity pressure drop in the primary loop [Pa]
         
 !========================================================================================
 ! Initialize Variables / Inputs
@@ -235,48 +254,58 @@ CONTAINS
         VolPF6=A_fuel*H_core/N_core     ! Fuel matrix volume (volume of fuel channel)
         NTRISO=VolPF6*PF/VolPF5         ! Number of TRISO particles per fuel channel CV in unit cell = PF*V_channel/V_TRISO
         
+        ! Used to calculate pressure drop only
         !A_core=DD1**2 -((DD1*2.0**0.5-DD2)/2.0**0.5)**2*2.0-0.35*0.35
-        D_core=9.2 !(4.0*A_core/PI)**0.5                                    ! HYDRAULIC RADIUS OF THE CORE [m]
-        A_core=PI*D_core**2.0/4.0                                           ! Used to calculate pressure drop!
-        
+        !D_core=(4.0*A_core/PI)**0.5
+        D_core=9.2                                     ! HYDRAULIC RADIUS OF THE CORE [m]
+        A_core=PI*D_core**2.0/4.0                      
+               
         ACTUAL_POWER=POWER_NORM*POWER+DECAY_HEAT        
 
-    
+        ! Primary Loop Geometry
+        D_coldleg=0.3_8
+        D_hotleg=0.3_8
+        L_coldleg=10.0_8
+        H_coldleg=H_core
+        L_hotleg=10.0_8
+        H_hotleg=0.0_8
+        Ltc=(H_core+H_hotleg+H_coldleg)/2.0
         
-    !================================================================================
-    ! Set criteria for average (1) or hot (2) channel
-    !--------------------------------------------------------------------------------
-    !
-    ! channel==1 --> average channel:
-    ! Override hot channel factors to 1.0_8 such that the hot channel factors are 
-    ! not applied for the average channel.
-    !
-    ! channel==2 --> hot channel:
-    ! Adjust flow rate for hot channel using the channel flow disparity factor.
-    !
-    !================================================================================
-    W_core=Q_core*flibe_rho(T_in)
-    IF (channel==1) THEN
-        W=W_core
-        FH=1.0_8
-        FKZ=1.0_8
-        FDTW=1.0_8
-        FDTF=1.0_8
-        FFDF=1.0_8
-    ELSE IF (channel==2) THEN
-        W=W_core*FFDF
-    END IF
+        
+            !================================================================================
+            ! Set criteria for average (1) or hot (2) channel
+            !--------------------------------------------------------------------------------
+            !
+            ! channel==1 --> average channel:
+            ! Override hot channel factors to 1.0_8 such that the hot channel factors are 
+            ! not applied for the average channel.
+            !
+            ! channel==2 --> hot channel:
+            ! Adjust flow rate for hot channel using the channel flow disparity factor.
+            !
+            !================================================================================
+            W_core=Q_core*flibe_rho(T_in) !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! W_core guess
+            IF (channel==1) THEN
+                W=W_core
+                FH=1.0_8
+                FKZ=1.0_8
+                FDTW=1.0_8
+                FDTF=1.0_8
+                FFDF=1.0_8
+            ELSE IF (channel==2) THEN
+                W=W_core*FFDF
+            END IF        
+            !write(*,*) "W=", W
+
             
- 
+            
+
        
 !================================================================================       
 ! Core Loop Calculations
 !================================================================================         
 
-        ! Initialize variables for loop
-        dP_core=0.0
-        T_coolant_max=0.0
-        T_core_max=0.0        
+       
         ! Allocate arrays
         allocate(enthalpy_core(N_core)) ! Array of enthalpies in each node(CV) of the core
         allocate(T_w_core(N_core))      ! Array of surface tempertures in each node(CV) of the core
@@ -284,114 +313,179 @@ CONTAINS
         allocate(T_CL_TRISO(N_core))    ! Array of central temperature in TRISO in each node(CV) of the core
         allocate(TC(N_core))
         allocate(TG(N_core))
-        
-        ! Loop through each core CV node
-        DO I=1,N_core
-            
-            IF (I==1) THEN
-                enthalpy_core(I)=flibe_enthalpy(T_in)+ACTUAL_POWER*AFP(I)*FH*FKZ/W
-                TC(I)=( flibe_temperature(enthalpy_core(I)) + T_in ) / 2.0       ! Average coolant temperature in node
-            ELSE
-                enthalpy_core(I)=enthalpy_core(I-1)+ACTUAL_POWER*AFP(I)*FH*FKZ/W
-                TC(I)=( flibe_temperature(enthalpy_core(I)) + flibe_temperature(enthalpy_core(I-1)) ) / 2.0
-            END IF   
-            
-            ! Calculate pressure drop in node
-            !IF (channel==1) THEN
-            !    FF_core=FF(W,D_cool,TC,1)
-            !    dP_core=dP_core+0.5*FF_core*(H_core/N_core)*(W/A_core)**2.0/(flibe_rho(TC)*D_cool) &
-            !            + flibe_rho(TC)*GRAVITY*H_core/N_core
-            !END IF
-            
-            ! =======================================================
-            ! Find wall temperature and iterate with HTC correlations
-            ! =======================================================
-            TOL=1.0e-6
-            TW=TC(I)
-            mu_w=flibe_mu(TW)
-            mu_w_temp=0
-            DO WHILE (abs(mu_w_temp - mu_w) > TOL) 
-            ! Calculate heat transfer coefficient in node 
-            ! For laminar flow select 1 for Nu=4.364, 2 for Sieder-Tate, and 3 for Rea (entrance length)
-            HTC_core=HTC(W/(N_cool*N_blocks),D_cool,H_core,H_core/N_core*I-H_core/N_core/2.0,TC(I),TW,3) 
-            mu_w_temp=flibe_mu(TW)
-            ! Find wall temperature
-            A_HTC=PI*D_cool*H_core/N_core*N_cool*N_blocks
-            TW=ACTUAL_POWER*AFP(I)*FKZ/(HTC_core*A_HTC) + TC(I)
-            TW=(TW-TC(I))*FDTW+TC(I)
-            mu_w=flibe_mu(TW)
-            END DO
-            T_w_core(I)=TW
-            ! --------------------------------------------------------
-            
-            
-            
-            ! Check if temperature is maximum
-            IF (TW>T_coolant_max) THEN
-                T_coolant_max=TW
-            END IF
-            
-            ! Calculate power in a fuel channel and centerline TRISO particle
-            NFC=2.0_8                                           ! Number of fuel channels: 2 for unit cell
-            PPFC=ACTUAL_POWER/(N_blocks*N_fuel)*AFP(I)*FKZ      ! Power per fuel channel 
-            PPT=PPFC/NTRISO                                     ! Power per TRISO particle
 
-            ! Calculate thermal conductivties and find temperatures
-            TOL=1.0e-5           
+        WTOL=0.001_8
+        W_temp=0.0_8
+        ! Iterate Mass Flow Rate for Natural Circulation
+        do while (abs(W-W_temp)> WTOL)
+            
+          ! Initialize variables for loop
+        dP_core_ff=0.0
+        dP_core_g=0.0
+        dP_core=0.0
+        T_coolant_max=0.0
+        T_core_max=0.0       
+        
+            ! Loop through each core CV node
+            DO I=1,N_core
+            
+                IF (I==1) THEN
+                    enthalpy_core(I)=flibe_enthalpy(T_in)+ACTUAL_POWER*AFP(I)*FH*FKZ/W
+                    TC(I)=( flibe_temperature(enthalpy_core(I)) + T_in ) / 2.0       ! Average coolant temperature in node
+                ELSE
+                    enthalpy_core(I)=enthalpy_core(I-1)+ACTUAL_POWER*AFP(I)*FH*FKZ/W
+                    TC(I)=( flibe_temperature(enthalpy_core(I)) + flibe_temperature(enthalpy_core(I-1)) ) / 2.0
+                END IF   
+            
+                ! Calculate pressure drop in node
+                IF (channel==1) THEN
+                    FF_core    = FF(W/(N_cool*N_blocks),D_cool,TC(I),1)
+                    dP_core_ff = dP_core_ff+0.5*FF_core*(H_core/N_core)*(W/(N_cool*N_blocks)/A_cool)**2.0/(flibe_rho(TC(I))*D_cool)
+                    dP_core_g  = dP_core_g + flibe_rho(TC(I))*GRAVITY*H_core/N_core     
+                END IF
+                dP_core = dP_core_ff + dP_core_g
+            
+                ! =======================================================
+                ! Find wall temperature and iterate with HTC correlations
+                ! =======================================================
+                TOL=1.0e-6
+                TW=TC(I)
+                mu_w=flibe_mu(TW)
+                mu_w_temp=0
+                DO WHILE (abs(mu_w_temp - mu_w) > TOL) 
+                ! Calculate heat transfer coefficient in node 
+                ! For laminar flow select 1 for Nu=4.364, 2 for Sieder-Tate, and 3 for Rea (entrance length)
+                HTC_core=HTC(W/(N_cool*N_blocks),D_cool,H_core,H_core/N_core*I-H_core/N_core/2.0,TC(I),TW,3) 
+                mu_w_temp=flibe_mu(TW)
+                ! Find wall temperature
+                A_HTC=PI*D_cool*H_core/N_core*N_cool*N_blocks
+                TW=ACTUAL_POWER*AFP(I)*FKZ/(HTC_core*A_HTC) + TC(I)
+                TW=(TW-TC(I))*FDTW+TC(I)
+                mu_w=flibe_mu(TW)
+                END DO
+                T_w_core(I)=TW
+                ! --------------------------------------------------------
+            
+            
+            
+                ! Check if temperature is maximum
+                IF (TW>T_coolant_max) THEN
+                    T_coolant_max=TW
+                END IF
+            
+                ! Calculate power in a fuel channel and centerline TRISO particle
+                NFC=2.0_8                                           ! Number of fuel channels: 2 for unit cell
+                PPFC=ACTUAL_POWER/(N_blocks*N_fuel)*AFP(I)*FKZ      ! Power per fuel channel 
+                PPT=PPFC/NTRISO                                     ! Power per TRISO particle
+
+                ! Calculate thermal conductivties and find temperatures
+                TOL=1.0e-5           
                         
-            ! GRAPHITE CLADDING
-            T_temp=TW
-            TG(I)=0.0
-            do while (abs(T_temp-TG(I))>TOL)
+                ! GRAPHITE CLADDING
+                T_temp=TW
+                TG(I)=0.0
+                do while (abs(T_temp-TG(I))>TOL)
+                    T_temp=TG(I)
+                    KPF(7)=k_graphite( (TW+T_temp)/2.0 )
+                    U=log( R_cg/(D_cool/2) ) / (2.0*PI*KPF(7)*H_core/N_core) ! Annular model
+                    TG(I)=2.0*PPFC*U + TW
+                end do
+            
+                ! FUEL MATRIX (TRISOs IN GRAPHITE MATRIX)
                 T_temp=TG(I)
-                KPF(7)=k_graphite( (TW+T_temp)/2.0 )
-                U=log( R_cg/(D_cool/2) ) / (2.0*PI*KPF(7)*H_core/N_core) ! Annular model
-                TG(I)=2.0*PPFC*U + TW
-            end do
-            
-            ! FUEL MATRIX (TRISOs IN GRAPHITE MATRIX)
-            T_temp=TG(I)
-            T_CL_core(I)=0.0
-            do while (abs(T_temp-T_CL_core(I))>TOL)
-                T_temp=T_CL_core(I)
-                KPF(6)=k_TRISO( (TG(I)+T_temp)/2.0 ) * k_mod
-                ! Unit cell model decoupled
-                !U=1.0/(4.0*PI*KPF(6)*H_core/N_core)                
-                ! T&K Eq. 8-97 for annular model
-                !U=1.0/(4.0*PI*KPF(6)*H_core/N_core)*(R_cg/R_cgf)**2.0*( (1.0-(R_cgf/R_cg)**2.0) &
-                    !- ( (R_cgf/R_cg)**2.0*log((R_cg/R_cgf)**2.0) ) ) 
-                ! My Eq. 8-97 (matches T&K)
-                U=1.0/(4.0*PI*KPF(6)*H_core/N_core)*(2.0*log(R_cgf/R_cg)-(1.0-(R_cg/R_cgf)**2.0))
-                T_CL_core(I)=2.0*PPFC*U + TG(I)
-            end do
+                T_CL_core(I)=0.0
+                do while (abs(T_temp-T_CL_core(I))>TOL)
+                    T_temp=T_CL_core(I)
+                    KPF(6)=k_TRISO( (TG(I)+T_temp)/2.0 ) * k_mod
+                    ! Unit cell model decoupled
+                    !U=1.0/(4.0*PI*KPF(6)*H_core/N_core)                
+                    ! T&K Eq. 8-97 for annular model
+                    !U=1.0/(4.0*PI*KPF(6)*H_core/N_core)*(R_cg/R_cgf)**2.0*( (1.0-(R_cgf/R_cg)**2.0) &
+                        !- ( (R_cgf/R_cg)**2.0*log((R_cg/R_cgf)**2.0) ) ) 
+                    ! My Eq. 8-97 (matches T&K)
+                    U=1.0/(4.0*PI*KPF(6)*H_core/N_core)*(2.0*log(R_cgf/R_cg)-(1.0-(R_cg/R_cgf)**2.0))
+                    T_CL_core(I)=2.0*PPFC*U + TG(I)
+                end do
                            
-            ! CENTERLINE TRISO PARTICLE
-            T_temp=T_CL_core(I)
-            U=0.0
-            ! Loop through TRISO coating layers to get their total thermal resistance
-            do m=2,5
-                U=1.0/(4.0*PI*k_trisolayer(m,T_temp)) * (1.0/RPF(m-1) - 1.0/RPF(m)) + U
+                ! CENTERLINE TRISO PARTICLE
+                T_temp=T_CL_core(I)
+                U=0.0
+                ! Loop through TRISO coating layers to get their total thermal resistance
+                do m=2,5
+                    U=1.0/(4.0*PI*k_trisolayer(m,T_temp)) * (1.0/RPF(m-1) - 1.0/RPF(m)) + U
+                end do
+                ! Add fuel kernel to total thermal resistance and calculate centerline temperature of centermost TRISO particle
+                T_CL_TRISO(I)=PPT*(RPF(1)**2.0/6.0/k_trisolayer(1,T_temp)/VolPF1+U) + T_CL_core(I)
+            
+                ! Apply hot channel factors
+                T_CL_TRISO(I)=(T_CL_TRISO(I)-TW)*FDTF+TW
+                T_CL_core(I)=(T_CL_core(I)-TW)*FDTF+TW
+            
+                ! Check if temperature is max
+                if (T_CL_core(I)>T_core_max) then
+                    T_core_max=T_CL_core(I)
+                end if
+            
             end do
-            ! Add fuel kernel to total thermal resistance and calculate centerline temperature of centermost TRISO particle
-            T_CL_TRISO(I)=PPT*(RPF(1)**2.0/6.0/k_trisolayer(1,T_temp)/VolPF1+U) + T_CL_core(I)
+        
+            ! Calculate T_out
+            T_out=flibe_temperature(enthalpy_core(N_core))
+   
+            ! Calculate pressure drop in the cold leg
+            dP_cold_ff=0.5*(W/(PI*D_coldleg**2.0/4.0))**2.0/flibe_rho(T_in)*(FF(W,D_coldleg,T_in,1)*(L_coldleg+H_coldleg)/D_coldleg+1.0) ! last 1.0 is K of two elbows
+            dP_cold_g =-1.0*flibe_rho(T_in)*gravity*H_coldleg
+            dP_coldleg=dP_cold_ff+dP_cold_g
             
-            ! Apply hot channel factors
-            T_CL_TRISO(I)=(T_CL_TRISO(I)-TW)*FDTF+TW
-            T_CL_core(I)=(T_CL_core(I)-TW)*FDTF+TW
+            ! Calculate pressure drop in the hot leg
+            dP_hot_ff=0.5*(W/(PI*D_hotleg**2.0/4.0))**2.0/flibe_rho(T_out)*(FF(W,D_hotleg,T_out,1)*(L_hotleg+H_hotleg)/D_hotleg+1.0) ! last 1.0 is K of two elbows
+            dP_hot_g =flibe_rho(T_out)*gravity*H_hotleg
+            dP_hotleg=dP_hot_ff+dP_hot_g
             
-            ! Check if temperature is max
-            if (T_CL_core(I)>T_core_max) then
-                T_core_max=T_CL_core(I)
-            end if
-             
+            ! Caluclate total primary pressure drop
+            dP_ff=dP_hot_ff+dP_cold_ff+dP_core_ff
+            dP_g =dP_hot_g +dP_cold_g +dP_core_g
+            dP=dP_core+dP_coldleg+dP_hotleg
+            
+            ! Update mass flow rate guess
+            W_temp=W
+            !FF_core=(flibe_rho(T_in)-flibe_rho(T_out))*gravity*Ltc
+            W=sqrt(((flibe_rho(T_in)-flibe_rho(T_out))*gravity*Ltc)/(dP_ff/W_temp**2.0))
+            IF (0.5*(W/(PI*D_hotleg**2.0/4.0))**2.0/flibe_rho(T_out)*(FF(W,D_hotleg,T_out,1)*(L_hotleg+H_hotleg)/D_hotleg+1.0)<0) THEN
+                write(*,*) "<0!!!"
+                read(*,*)
+            END IF
+            !W=sqrt( (dP_core_g-dP_cold_g)/(dP_ff/W_temp**2.0) )
+            
+            !!! Print Pressure Drops
+            !!write(*,*) "For W=", W
+            !!write(*,'(A18,A11,A11,A11,A11)') "",                          "Hot leg", "Cold Leg", "Core",     "Primary"
+            !!write(*,'(A18,F11.2,F11.2,F11.2,F11.2)')    "dP_fricform = ", dP_hot_ff, dP_cold_ff, dP_core_ff, dP_ff
+            !!write(*,'(A18,F11.2,F11.2,F11.2,F11.2)')    "dP_gravity  = ", dP_hot_g,  dP_cold_g,  dP_core_g,  dP_g
+            !!write(*,'(A18,F11.2,F11.2,F11.2,F11.2)')    "dP_total    = ", dP_hotleg, dP_coldleg, dP_core,    dP
+            
         end do
         
-        T_out=flibe_temperature(enthalpy_core(N_core))
-   
         
+        ! Print Pressure Drops
+        write(*,'(A,F9.4)')                         "                 Pressure Drop for W=", W
+        write(*,*)                                  "----------------------------------------------------------------"
+        write(*,'(A18,A11,A11,A11,A11)') "",                          "Hot leg", "Cold Leg", "Core",     "Primary"
+        write(*,'(A18,F11.2,F11.2,F11.2,F11.2)')    "dP_fricform = ", dP_hot_ff, dP_cold_ff, dP_core_ff, dP_ff
+        write(*,'(A18,F11.2,F11.2,F11.2,F11.2)')    "dP_gravity  = ", dP_hot_g,  dP_cold_g,  dP_core_g,  dP_g
+        write(*,'(A18,F11.2,F11.2,F11.2,F11.2)')    "dP_total    = ", dP_hotleg, dP_coldleg, dP_core,    dP
+        write(*,*) FF_core
+        
+        
+         
+        ! Set Outputs
+        inputoutput%POWER=POWER
+        inputoutput%W_core=W
+        inputoutput%Q_core=W/flibe_rho(T_in)
+        inputoutput%T_in=T_in
         inputoutput%T_out=T_out
         inputoutput%T_coolant_max=T_coolant_max
         inputoutput%T_core_max=T_core_max
+        
         
         ! ===============================================================================
         ! Print results to file output.txt
@@ -404,6 +498,8 @@ CONTAINS
             write(10,'(F9.2,F9.3,F9.3,F9.3,F9.3,F9.3)') &
                         POWER/1.0E6,W,T_in,T_out,T_coolant_max,T_core_max
             write(10,*) "---------------------------------------------------------"
+            write(20,'(F9.2,F9.3,F9.3,F9.3,F9.3,F9.3)') &
+                        POWER/1.0E6,W,T_in,T_out,T_coolant_max,T_core_max 
             do I=1,N_core
                 if (I==1) then
                     if (channel==1) then
@@ -424,21 +520,12 @@ CONTAINS
         !================================================================================
         ! Print LSSS
         !================================================================================  
-        !write(*,*)
-        !write(*,*) "                           LSSS Results                           "
-        !write(*,*) "   POWER      W      T_IN    T_OUT    TC_MAX   TF_MAX"
+        write(*,*)
+        write(*,*) "                           LSSS Results                           "
+        write(*,*) "   POWER      W      T_IN    T_OUT    TC_MAX   TF_MAX"
         write(*,'(F9.2,F9.3,F9.3,F9.3,F9.3,F9.3)') &
                     POWER/1.0E6,W,T_in,T_out,T_coolant_max,T_core_max
-        write(*,*)
-        
-        !write(10,*)
-        !write(10,*) "                           LSSS Results                           "
-        !write(10,*) "   POWER        W     T_IN    T_OUT   TC_MAX   TF_MAX"
-        !write(10,'(F9.2,F9.3,F9.3,F9.3,F9.3,F9.3)') &
-        !            POWER/1.0E6,W,T_in,T_out,T_coolant_max,T_core_max
-        !write(10,*)
-        !write(10,*) "=================================================================="
-        !write(10,*)
+        write(*,*)      
                 
         
         !================================================================================
@@ -451,13 +538,13 @@ CONTAINS
         deallocate(TC)
         deallocate(TG)
         
-    END SUBROUTINE prismaticcoreTin
+    END SUBROUTINE natcirccoreTin
 
     
     
  
     !================================================================================
-    !  SUBROUTINE: prismaticcoreTout
+    !  SUBROUTINE: natcirccoreTout
     !================================================================================
     ! parameters (arguments_type) -->
     ! INPUTS
@@ -474,7 +561,7 @@ CONTAINS
     ! REFERENCES
     !   Yao's Code, which uses power distribution data, LS-VHTR
     !================================================================================
-    SUBROUTINE prismaticcoreTout(inputoutput,channel,axialprint)
+    SUBROUTINE natcirccoreTout(inputoutput,channel,axialprint)
     
         USE global
         USE flibeprop, ONLY: flibe_cp, flibe_k, flibe_rho, flibe_mu, flibe_enthalpy, flibe_temperature
@@ -662,6 +749,9 @@ CONTAINS
         !A_core=DD1**2 -((DD1*2.0**0.5-DD2)/2.0**0.5)**2*2.0-0.35*0.35
         D_core=9.2 !(4.0*A_core/PI)**0.5                                    ! HYDRAULIC RADIUS OF THE CORE [m]
         A_core=PI*D_core**2.0/4.0                                           ! Used to calculate pressure drop!
+        
+                
+
         
         ACTUAL_POWER=POWER_NORM*POWER+DECAY_HEAT        
 
@@ -852,7 +942,7 @@ DO WHILE (abs(T_in_temp - T_in) > TOLin)   ! BOTTLENECK !!!!!!!!!!!!!!!!!!!!!!!!
             write(10,*) "========================================================="
             write(10,*)
         end if    
-        ! ===============================================================================
+        ! ===============================================================================        
         
         
         
@@ -890,15 +980,15 @@ END DO
         
 
         
-    END SUBROUTINE prismaticcoreTout
+    END SUBROUTINE natcirccoreTout
     
     
     
    
     !================================================================================
-    !  SUBROUTINE: prismaticLSSSloopINLET  
+    !  SUBROUTINE: natcircLSSSloopINLET  
     !================================================================================
-    SUBROUTINE prismaticLSSSloopINLET(inputoutput,limits,LSSS)
+    SUBROUTINE natcircLSSSloopINLET(inputoutput,limits,LSSS)
 
         USE io, ONLY: inputoutput_init_outputs
         
@@ -955,7 +1045,7 @@ END DO
             !================================================================================
             ! Calculate core temperatures for average channel
             !================================================================================
-            call prismaticcoreTin(inputoutput,1,0)
+            call natcirccoreTin(inputoutput,1,0)
             T_out_avg=inputoutput%T_out
             ! Check for exceedance of LSSS T_out temperature limit
             if (inputoutput%T_out>=T_out_limit .AND. Toutflag==.false.) then
@@ -970,7 +1060,7 @@ END DO
             !================================================================================
             ! Calculate core temperatures for hot channel
             !================================================================================
-            call prismaticcoreTin(inputoutput,2,0)
+            call natcirccoreTin(inputoutput,2,0)
             ! Check for exceedance of LSSS coolant temperature limit   
             if (inputoutput%T_coolant_max>=T_coolant_limit .AND. coolantflag==.false.) then
                 coolantflag=.true.
@@ -999,14 +1089,14 @@ END DO
         end do
         !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
         !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-   
-    END SUBROUTINE prismaticLSSSloopINLET
+    END SUBROUTINE natcircLSSSloopINLET
         
     
     
     !================================================================================
-    !  SUBROUTINE: prismaticLSSSloopOUTLET  
+    !  SUBROUTINE: natcircLSSSloopOUTLET  
     !================================================================================
-    SUBROUTINE prismaticLSSSloopOUTLET(inputoutput,limits,LSSS)   
+    SUBROUTINE natcircLSSSloopOUTLET(inputoutput,limits,LSSS)   
     
         USE io, ONLY: inputoutput_init_Tout
     
@@ -1062,18 +1152,18 @@ END DO
             !================================================================================
             ! Calculate core temperatures for average channel
             !================================================================================
-            call prismaticcoreTout(inputoutput,1,0)
+            call natcirccoreTout(inputoutput,1,0)
             LSSS%OUTmaxcoolToutavg=inputoutput%T_out
             LSSS%OUTmaxfuelToutavg=inputoutput%T_out
             
-            call prismaticcoreTin(inputoutput,1,0)
+            call natcirccoreTin(inputoutput,1,0)
             !!!!write(*,*) inputoutput
             
 
             !================================================================================
             ! Calculate core temperatures for hot channel
             !================================================================================
-            call prismaticcoreTin(inputoutput,2,0)
+            call natcirccoreTin(inputoutput,2,0)
             ! Check for exceedance of LSSS coolant temperature limit   
             if (inputoutput%T_coolant_max>=T_coolant_limit .AND. coolantflag==.false.) then
                 coolantflag=.true.
@@ -1102,12 +1192,12 @@ END DO
 
         !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
         !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-    END SUBROUTINE prismaticLSSSloopOUTLET
+    END SUBROUTINE natcircLSSSloopOUTLET
     
     
     
     !================================================================================
-    !  SUBROUTINE: prismaticLSSS  
+    !  SUBROUTINE: natcircLSSS  
     !================================================================================
     ! INPUTS
     !   limits (limits_type) -->
@@ -1141,7 +1231,7 @@ END DO
     ! REFERENCES
     !   none
     !================================================================================    
-    SUBROUTINE prismaticLSSS(inputoutput,limits,LSSS)
+    SUBROUTINE natcircLSSS(inputoutput,limits,LSSS)
         
     use io, only: print_lsss
     
@@ -1153,16 +1243,16 @@ END DO
         
         !write(*,*)
         !write(*,*) "Calculating LSSS Data Points..."
-        call prismaticLSSSloopINLET(inputoutput,limits,LSSS)
+        call natcircLSSSloopINLET(inputoutput,limits,LSSS)
         !write(*,*) "inlet done"
         !call print_LSSS(LSSS,inputoutput%Q_core,limits)
-        call prismaticLSSSloopOUTLET(inputoutput,limits,LSSS)
+        call natcircLSSSloopOUTLET(inputoutput,limits,LSSS)
         !write(*,*) "LSSS Calculation Complete"
         !write(*,*)
         !call print_LSSS(LSSS,inputoutput%Q_core,limits)
 
    
-    END SUBROUTINE prismaticLSSS
+    END SUBROUTINE natcircLSSS
             
 
     
@@ -1248,7 +1338,7 @@ END DO
             ! Gnielinski
             Nu = 0.012 * (Re**0.87 - 280.0) * Pr**0.4 * (1+(DC/L)**(2/3)) * (mu_b/mu_w)**(0.11)
         else 
-            write(*,*) "Reynold's number out of range for HTC correlation.", Re
+            write(*,*) "Reynold's number out of range for HTC correlation:", Re
             Nu=100
         end if
 
@@ -1304,7 +1394,8 @@ END DO
             else if (Re>30000 .AND. Re<1000000) then ! McAdams
                 FF=0.184*Re**(-0.2)
             else
-                write(*,*) "Reynold's number out of range for friction factor correlation.", Re
+                write(*,*) "Reynold's number out of range for friction factor correlation:", Re
+                FF=0.184*Re**(-0.2)
             end if             
         CASE(2)
             ! Churchill
@@ -1320,4 +1411,4 @@ END DO
 
     END FUNCTION FF
             
-END MODULE prismatic
+END MODULE natcirc

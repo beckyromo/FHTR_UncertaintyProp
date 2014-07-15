@@ -39,6 +39,7 @@
                 !!!    flibe_cp=rn_normal(2386.0d0,71.58d0)    ! Heat Capacity of Flibe [J/kg-C]    
                 !!!ELSE
                     flibe_cp=2386.0*sens%s_cp               ! Heat Capacity of Flibe [J/kg-C]
+                    !flibe_cp=1172.0 ! NaFZrF
                 !!!ENDIF
                     
             END FUNCTION flibe_cp
@@ -59,6 +60,7 @@
                 !!!    flibe_k=rn_normal(1.1d0,0.11d0)     ! Thermal conductivity of flibe [W/m-K]    
                 !!!ELSE
                     flibe_k=1.1*sens%s_k                ! Thermal conductivity of flibe [W/m-K]
+                    !flibe_k=0.49 ! NaFZrF
                 !!!ENDIF
                 
             END FUNCTION flibe_k    
@@ -74,7 +76,8 @@
                 IMPLICIT NONE
                 REAL(8), INTENT(IN) :: T            ! Temperature [Celcius]
                 !flibe_rho=2422.2-0.4859*T          ! Yao Density of flibe [kg/m^3]
-                flibe_rho=(2413-0.488*(T+273.15))*sens%s_rho     ! Density of flibe [kg/m^3]
+                flibe_rho=(2413.0-0.488*(T+273.15))*sens%s_rho     ! Density of flibe [kg/m^3]
+                !flibe_rho=(3827.0-0.899*(T+273.15)) ! NaFZrF
             END FUNCTION flibe_rho
             
             !================================================================================
@@ -88,6 +91,7 @@
                 IMPLICIT NONE
                 REAL(8), INTENT(IN) :: T                    ! Temperature [Celcius]               
                 flibe_mu=sens%s_mu*0.000116*EXP(3755.0/(T+273.15))    ! Viscosity of flibe [Pa-s]
+                !flibe_mu=0.0000767*EXP(3977/(T+273.15)) ! NaFZrF
                 !flibe_mu=0.00561_8 
             END FUNCTION
             
